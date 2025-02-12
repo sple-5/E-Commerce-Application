@@ -24,6 +24,7 @@ import com.app.exceptions.ResourceNotFoundException;
 import com.app.payloads.OrderDTO;
 import com.app.payloads.OrderItemDTO;
 import com.app.payloads.OrderResponse;
+import com.app.payloads.PaymentDetailsDTO;
 import com.app.repositories.CartItemRepo;
 import com.app.repositories.CartRepo;
 import com.app.repositories.OrderItemRepo;
@@ -65,70 +66,71 @@ public class OrderServiceImpl implements OrderService {
 	public ModelMapper modelMapper;
 
 	@Override
-	public OrderDTO placeOrder(String email, Long cartId, String paymentMethod) {
-
+	public OrderDTO placeOrder(
+		String email, 
+		Long cartId, 
+		String paymentMethod,
+		PaymentDetailsDTO paymentDetails
+	) {
+	
 		Cart cart = cartRepo.findCartByEmailAndCartId(email, cartId);
-
+	
 		if (cart == null) {
 			throw new ResourceNotFoundException("Cart", "cartId", cartId);
 		}
-
+	
 		Order order = new Order();
-
+	
 		order.setEmail(email);
 		order.setOrderDate(LocalDate.now());
-
 		order.setTotalAmount(cart.getTotalPrice());
 		order.setOrderStatus("Order Accepted !");
-
+	
 		Payment payment = new Payment();
 		payment.setOrder(order);
 		payment.setPaymentMethod(paymentMethod);
-
+		payment.setCardNumber(paymentDetails.getCardNumber());
+		payment.setCvc(paymentDetails.getCvc());
+		payment.setExpirationDate(paymentDetails.getExpirationDate());
+	
+		payment.hashSensitiveData();
+	
 		payment = paymentRepo.save(payment);
-
 		order.setPayment(payment);
-
+	
 		Order savedOrder = orderRepo.save(order);
-
+	
 		List<CartItem> cartItems = cart.getCartItems();
-
-		if (cartItems.size() == 0) {
+		if (cartItems.isEmpty()) {
 			throw new APIException("Cart is empty");
 		}
-
+	
 		List<OrderItem> orderItems = new ArrayList<>();
-
 		for (CartItem cartItem : cartItems) {
 			OrderItem orderItem = new OrderItem();
-
 			orderItem.setProduct(cartItem.getProduct());
 			orderItem.setQuantity(cartItem.getQuantity());
 			orderItem.setDiscount(cartItem.getDiscount());
 			orderItem.setOrderedProductPrice(cartItem.getProductPrice());
 			orderItem.setOrder(savedOrder);
-
 			orderItems.add(orderItem);
 		}
-
+	
 		orderItems = orderItemRepo.saveAll(orderItems);
-
+	
 		cart.getCartItems().forEach(item -> {
 			int quantity = item.getQuantity();
-
 			Product product = item.getProduct();
-
 			cartService.deleteProductFromCart(cartId, item.getProduct().getProductId());
-
 			product.setQuantity(product.getQuantity() - quantity);
 		});
-
+	
 		OrderDTO orderDTO = modelMapper.map(savedOrder, OrderDTO.class);
-		
 		orderItems.forEach(item -> orderDTO.getOrderItems().add(modelMapper.map(item, OrderItemDTO.class)));
-
+	
 		return orderDTO;
 	}
+	
 
 	@Override
 	public List<OrderDTO> getOrdersByUser(String email) {
