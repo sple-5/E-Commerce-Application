@@ -5,6 +5,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -29,13 +30,16 @@ public class Payment {
     private Long paymentId;
     
     @NotBlank(message = "Card number is required")
+    @Column(name = "card_number")
     private String cardNumber;
     
     @NotBlank(message = "CVC is required")
+    @Column(name = "cvc")
     private String cvc;
     
     @NotBlank(message = "Expiration date is required")
     @Pattern(regexp = "^(0[1-9]|1[0-2])\\/\\d{2}$", message = "Invalid expiration date format (MM/YY)")
+    @Column(name = "expiration_date")
     private String expirationDate;
 
 	@NotBlank
