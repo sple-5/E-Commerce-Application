@@ -3,6 +3,7 @@ package com.app.services;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.modelmapper.ModelMapper;
@@ -21,6 +22,7 @@ import com.app.entites.Payment;
 import com.app.entites.Product;
 import com.app.exceptions.APIException;
 import com.app.exceptions.ResourceNotFoundException;
+import com.app.payloads.BankPaymentRequestDTO;
 import com.app.payloads.OrderDTO;
 import com.app.payloads.OrderItemDTO;
 import com.app.payloads.OrderResponse;
@@ -64,8 +66,23 @@ public class OrderServiceImpl implements OrderService {
 	@Autowired
 	public ModelMapper modelMapper;
 
+	public Map<String, String> supportedBanks = Map.of(
+        "BCA", "1234567890",
+        "Mandiri", "9876543210",
+        "BNI", "4567891230",
+        "BRI", "7891234560"
+    );
+
 	@Override
-	public OrderDTO placeOrder(String email, Long cartId, String paymentMethod) {
+	public OrderDTO placeOrder(String email, Long cartId, String paymentMethod, BankPaymentRequestDTO bankName) {
+		if (!(paymentMethod.toLowerCase().equals("bank_transfer"))) {
+			throw new APIException(String.format("Payment method %s is not supported.", paymentMethod));
+		}
+
+		if (!supportedBanks.containsKey(bankName.getBankName())) {
+			System.out.println(bankName);
+			throw new APIException("Bank yang dipilih tidak didukung. Pilih dari: " + supportedBanks.keySet());
+		}
 
 		Cart cart = cartRepo.findCartByEmailAndCartId(email, cartId);
 
@@ -84,6 +101,7 @@ public class OrderServiceImpl implements OrderService {
 		Payment payment = new Payment();
 		payment.setOrder(order);
 		payment.setPaymentMethod(paymentMethod);
+		payment.setBankName(bankName.getBankName());
 
 		payment = paymentRepo.save(payment);
 
@@ -124,6 +142,7 @@ public class OrderServiceImpl implements OrderService {
 		});
 
 		OrderDTO orderDTO = modelMapper.map(savedOrder, OrderDTO.class);
+		orderDTO.getPayment().setAccountNumber(supportedBanks.get(bankName.getBankName()));
 		
 		orderItems.forEach(item -> orderDTO.getOrderItems().add(modelMapper.map(item, OrderItemDTO.class)));
 
