@@ -43,6 +43,11 @@ public class Order {
 	@JoinColumn(name = "payment_id")
 	private Payment payment;
 	
+	@OneToOne
+	@JoinColumn(name = "coupon_id", referencedColumnName = "id")
+	private Coupon appliedCoupon;
+
+	
 	private Double totalAmount;
 	private String orderStatus;
 }

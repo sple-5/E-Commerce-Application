@@ -33,5 +33,10 @@ public class CartItem {
 	private Integer quantity;
 	private double discount;
 	private double productPrice;
+
+	public double getSubtotal() {
+		return (quantity * productPrice) - discount;
+	}
+	
 	
 }
