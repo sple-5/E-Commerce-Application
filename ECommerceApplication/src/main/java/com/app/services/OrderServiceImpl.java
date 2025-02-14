@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 
 import com.app.entites.Cart;
 import com.app.entites.CartItem;
+import com.app.entites.Coupon;
 import com.app.entites.Order;
 import com.app.entites.OrderItem;
 import com.app.entites.Payment;
@@ -26,6 +27,7 @@ import com.app.payloads.OrderItemDTO;
 import com.app.payloads.OrderResponse;
 import com.app.repositories.CartItemRepo;
 import com.app.repositories.CartRepo;
+import com.app.repositories.CouponRepository;
 import com.app.repositories.OrderItemRepo;
 import com.app.repositories.OrderRepo;
 import com.app.repositories.PaymentRepo;
@@ -62,6 +64,12 @@ public class OrderServiceImpl implements OrderService {
 	public CartService cartService;
 
 	@Autowired
+	public CouponService couponService;
+
+	@Autowired
+	public CouponRepository couponRepository;
+
+	@Autowired
 	public ModelMapper modelMapper;
 
 	@Override
@@ -80,6 +88,14 @@ public class OrderServiceImpl implements OrderService {
 
 		order.setTotalAmount(cart.getTotalPrice());
 		order.setOrderStatus("Order Accepted !");
+
+		if (cart.getAppliedCoupon() != null) {
+			Coupon appliedCoupon = cart.getAppliedCoupon();
+			order.setAppliedCoupon(appliedCoupon);
+
+			appliedCoupon.useCoupon();
+			couponRepository.save(appliedCoupon);
+		}
 
 		Payment payment = new Payment();
 		payment.setOrder(order);
@@ -122,6 +138,10 @@ public class OrderServiceImpl implements OrderService {
 
 			product.setQuantity(product.getQuantity() - quantity);
 		});
+
+		cart.setAppliedCoupon(null);
+		cart.setTotalPrice(0.0);
+		cartRepo.save(cart);
 
 		OrderDTO orderDTO = modelMapper.map(savedOrder, OrderDTO.class);
 		
