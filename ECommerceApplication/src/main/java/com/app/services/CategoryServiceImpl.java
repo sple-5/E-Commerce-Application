@@ -27,7 +27,7 @@ public class CategoryServiceImpl implements CategoryService {
 
 	@Autowired
 	private CategoryRepo categoryRepo;
-	
+
 	@Autowired
 	private ProductService productService;
 
@@ -53,7 +53,7 @@ public class CategoryServiceImpl implements CategoryService {
 				: Sort.by(sortBy).descending();
 
 		Pageable pageDetails = PageRequest.of(pageNumber, pageSize, sortByAndOrder);
-		
+
 		Page<Category> pageCategories = categoryRepo.findAll(pageDetails);
 
 		List<Category> categories = pageCategories.getContent();
@@ -66,14 +66,14 @@ public class CategoryServiceImpl implements CategoryService {
 				.map(category -> modelMapper.map(category, CategoryDTO.class)).collect(Collectors.toList());
 
 		CategoryResponse categoryResponse = new CategoryResponse();
-		
+
 		categoryResponse.setContent(categoryDTOs);
 		categoryResponse.setPageNumber(pageCategories.getNumber());
 		categoryResponse.setPageSize(pageCategories.getSize());
 		categoryResponse.setTotalElements(pageCategories.getTotalElements());
 		categoryResponse.setTotalPages(pageCategories.getTotalPages());
 		categoryResponse.setLastPage(pageCategories.isLast());
-		
+
 		return categoryResponse;
 	}
 
@@ -93,13 +93,13 @@ public class CategoryServiceImpl implements CategoryService {
 	public String deleteCategory(Long categoryId) {
 		Category category = categoryRepo.findById(categoryId)
 				.orElseThrow(() -> new ResourceNotFoundException("Category", "categoryId", categoryId));
-		
+
 		List<Product> products = category.getProducts();
 
 		products.forEach(product -> {
 			productService.deleteProduct(product.getProductId());
 		});
-		
+
 		categoryRepo.delete(category);
 
 		return "Category with categoryId: " + categoryId + " deleted successfully !!!";
