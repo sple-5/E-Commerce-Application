@@ -46,5 +46,11 @@ public class CouponController {
         couponService.applyCoupon(email, cartId, code);
         return new ResponseEntity<>("Coupon applied successfully!", HttpStatus.OK);
     }
+
+    @PostMapping("/public/users/{email}/carts/{cartId}/cancel-coupon")
+    public ResponseEntity<String> applyCoupon(@PathVariable String email, @PathVariable Long cartId) {
+        couponService.cancelCoupon(email, cartId);
+        return new ResponseEntity<>("Coupon cancelled successfully!", HttpStatus.OK);
+    }
     
 }

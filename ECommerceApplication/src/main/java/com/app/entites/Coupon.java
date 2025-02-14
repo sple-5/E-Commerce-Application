@@ -46,4 +46,8 @@ public class Coupon {
             throw new IllegalStateException("Coupon is expired or usage limit reached.");
         }
     }
+
+    public void unuseCoupon() {
+        usedCount--;
+    }
 }

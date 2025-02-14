@@ -93,7 +93,11 @@ public class OrderServiceImpl implements OrderService {
 			Coupon appliedCoupon = cart.getAppliedCoupon();
 			order.setAppliedCoupon(appliedCoupon);
 
-			appliedCoupon.useCoupon();
+			try {
+				appliedCoupon.useCoupon();
+			} catch (IllegalStateException exception) {
+				throw new APIException(exception.getMessage());
+			}
 			couponRepository.save(appliedCoupon);
 		}
 

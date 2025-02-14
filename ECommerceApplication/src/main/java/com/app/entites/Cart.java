@@ -39,6 +39,19 @@ public class Cart {
         recalculateTotal();
     }
 
+    public Coupon cancelCoupon() {
+        System.out.println("Applied coupon 2: " + appliedCoupon);
+        if (appliedCoupon.equals(null)) {
+            return null;
+        }
+
+        Coupon coupon = appliedCoupon;
+        appliedCoupon = null;
+        recalculateTotal();
+
+        return coupon;
+    }
+
     public void recalculateTotal() {
         totalPrice = cartItems.stream().mapToDouble(CartItem::getSubtotal).sum();
 
