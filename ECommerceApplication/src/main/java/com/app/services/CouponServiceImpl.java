@@ -149,8 +149,6 @@ public class CouponServiceImpl implements CouponService {
         if (coupon.equals(null)) {
             throw new APIException("Coupon is missing from cart!");
         }
-
-        coupon.unuseCoupon();
         
         cartRepository.save(cart);
         couponRepository.save(coupon);
