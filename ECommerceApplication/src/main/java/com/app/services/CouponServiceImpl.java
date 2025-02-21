@@ -1,26 +1,21 @@
 package com.app.services;
 
-import com.app.entites.Cart;
+import com.app.entites.AmountCoupon;
 import com.app.entites.Coupon;
-import com.app.exceptions.APIException;
-import com.app.exceptions.ResourceNotFoundException;
+import com.app.entites.PercentageCoupon;
 import com.app.payloads.CouponDTO;
 import com.app.payloads.CouponResponse;
-import com.app.repositories.CartRepo;
 import com.app.repositories.CouponRepository;
-import com.app.repositories.UserRepo;
+import com.app.repositories.CartRepo;
+import com.app.entites.Cart;
+import com.app.exceptions.APIException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.*;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
-
-import org.modelmapper.ModelMapper;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class CouponServiceImpl implements CouponService {
@@ -29,130 +24,82 @@ public class CouponServiceImpl implements CouponService {
     private CouponRepository couponRepository;
 
     @Autowired
-    private UserRepo userRepository;
-
-    @Autowired
-    private CartRepo cartRepository;
-
-    @Autowired
-    private ModelMapper modelMapper;
+    private CartRepo cartRepo;
 
     @Override
     public CouponDTO createCoupon(CouponDTO couponDTO) {
-        
-        if (couponRepository.existsByCode(couponDTO.getCode())) {
-            throw new IllegalArgumentException("Coupon with code '" + couponDTO.getCode() + "' already exists.");
+        Coupon newCoupon;
+
+        if ("AMOUNT".equalsIgnoreCase(couponDTO.getDiscountType())) {
+            newCoupon = new AmountCoupon();
+            ((AmountCoupon) newCoupon).setDiscountAmount(couponDTO.getDiscountAmount());
+        } else if ("PERCENTAGE".equalsIgnoreCase(couponDTO.getDiscountType())) {
+            newCoupon = new PercentageCoupon();
+            ((PercentageCoupon) newCoupon).setDiscountPercentage(couponDTO.getDiscountPercentage());
+        } else {
+            throw new IllegalArgumentException("Invalid discount type. Allowed values: AMOUNT or PERCENTAGE.");
         }
-    
-        Coupon coupon = modelMapper.map(couponDTO, Coupon.class);
-        Coupon savedCoupon = couponRepository.save(coupon);
-    
-        return modelMapper.map(savedCoupon, CouponDTO.class);
+
+        newCoupon.setCode(couponDTO.getCode());
+        newCoupon.setUsageLimit(couponDTO.getUsageLimit());
+        newCoupon.setExpirationDate(couponDTO.getExpirationDate());
+
+        Coupon savedCoupon = couponRepository.save(newCoupon);
+
+        return new CouponDTO(savedCoupon);
     }
-    
 
     @Override
     public CouponResponse getAllCoupons(int pageNumber, int pageSize, String sortBy, String sortOrder) {
-        
-        Sort sortByAndOrder = sortOrder.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending()
-        : Sort.by(sortBy).descending();     
-        
-        Pageable pageDetails = PageRequest.of(pageNumber, pageSize, sortByAndOrder);
-        Page<Coupon> pageCoupons = couponRepository.findAll(pageDetails);
-        
-        List<Coupon> allCoupons = pageCoupons.getContent(); 
+        Sort sort = sortOrder.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(pageNumber, pageSize, sort);
 
-		if (allCoupons.size() == 0) {
-			throw new APIException("Coupon is not yet available");
-		}
+        Page<Coupon> coupons = couponRepository.findAll(pageable);
+        List<CouponDTO> couponDTOs = coupons.getContent()
+                .stream()
+                .map(CouponDTO::new)
+                .collect(Collectors.toList());
 
-		List<CouponDTO> couponDTOs = allCoupons.stream().map(p -> modelMapper.map(p, CouponDTO.class))
-				.collect(Collectors.toList());
-
-        CouponResponse couponResponse = new CouponResponse();
-
-		couponResponse.setCoupons(couponDTOs);
-		couponResponse.setPageNumber(pageCoupons.getNumber());
-		couponResponse.setPageSize(pageCoupons.getSize());
-		couponResponse.setTotalElements(pageCoupons.getTotalElements());
-		couponResponse.setTotalPages(pageCoupons.getTotalPages());
-		couponResponse.setLastPage(pageCoupons.isLast());
-
-		return couponResponse;    
+        return new CouponResponse(couponDTOs, coupons.getNumber(), coupons.getSize(),
+                coupons.getTotalElements(), coupons.getTotalPages(), coupons.isLast());
     }
 
     @Override
     public CouponDTO getCouponByCode(String code) {
         Coupon coupon = couponRepository.findByCode(code)
-                .orElseThrow(() -> new ResourceNotFoundException("Coupon", "coupon_name", code));
-        return modelMapper.map(coupon, CouponDTO.class);
+                .orElseThrow(() -> new APIException("Coupon not found"));
+        return new CouponDTO(coupon);
     }
 
-    @Transactional
     @Override
+    @Transactional
     public void applyCoupon(String email, Long cartId, String code) {
-        userRepository.findByEmail(email)
-            .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
-    
-        Cart cart = cartRepository.findById(cartId)
-                .orElseThrow(() -> new ResourceNotFoundException("Cart", "id", cartId));
-    
-        if (!cart.getUser().getEmail().equals(email)) {
-            throw new APIException("Cart does not belong to the user!");
-        }
-    
-        if (cart.getCartItems().isEmpty()) {
-            throw new APIException("Cannot apply a coupon to an empty cart.");
-        }
-    
+        Cart cart = cartRepo.findById(cartId)
+                .orElseThrow(() -> new APIException("Cart not found"));
+
         Coupon coupon = couponRepository.findByCode(code)
-                .orElseThrow(() -> new ResourceNotFoundException("Coupon", "code", code));
-    
+                .orElseThrow(() -> new APIException("Coupon not found"));
+
         if (!coupon.isValid()) {
-            throw new APIException("Coupon is expired or usage limit reached.");
+            throw new APIException("Coupon is expired or has been used the maximum number of times.");
         }
-    
-        if (cart.getAppliedCoupon() != null) {
-            if (cart.getAppliedCoupon().getCode().equals(code)) {
-                return;
-            } else {
-                cart.getAppliedCoupon().setUsedCount(cart.getAppliedCoupon().getUsedCount() - 1); 
-            }
-        }
-        
-        cart.setAppliedCoupon(coupon);
-        cart.recalculateTotal();
-    
-        couponRepository.save(coupon);
-        cartRepository.save(cart);
+
+        cart.applyCoupon(coupon);
+        cartRepo.save(cart);
     }
 
-    @Transactional
     @Override
+    @Transactional
     public void cancelCoupon(String email, Long cartId) {
-        userRepository.findByEmail(email)
-            .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
-
-        Cart cart = cartRepository.findById(cartId)
-                .orElseThrow(() -> new ResourceNotFoundException("Cart", "id", cartId));
-
-        if (!cart.getUser().getEmail().equals(email)) {
-            throw new APIException("Cart does not belong to the user!");
-        }
+        Cart cart = cartRepo.findById(cartId)
+                .orElseThrow(() -> new APIException("Cart not found"));
 
         if (cart.getAppliedCoupon() == null) {
-            throw new APIException("Coupon has not been applied to the cart!");
+            throw new APIException("No coupon applied to cancel.");
         }
 
-        Coupon coupon = cart.cancelCoupon();
-
-        if (coupon.equals(null)) {
-            throw new APIException("Coupon is missing from cart!");
-        }
-        
-        cartRepository.save(cart);
-        couponRepository.save(coupon);
+        cart.setAppliedCoupon(null);
+        cart.recalculateTotal();
+        cartRepo.save(cart);
     }
-    
-
 }

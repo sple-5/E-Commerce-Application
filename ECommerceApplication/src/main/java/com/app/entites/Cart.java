@@ -7,8 +7,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Data
 @Table(name = "carts")
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class Cart {
@@ -21,7 +22,7 @@ public class Cart {
     @JoinColumn(name = "user_id")
     private User user;
 
-    @OneToMany(mappedBy = "cart", cascade = { CascadeType.PERSIST, CascadeType.MERGE }, orphanRemoval = true)
+    @OneToMany(mappedBy = "cart", cascade = {CascadeType.PERSIST, CascadeType.MERGE}, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<CartItem> cartItems = new ArrayList<>();
 
     private Double totalPrice = 0.0;
@@ -39,28 +40,20 @@ public class Cart {
         recalculateTotal();
     }
 
-    public Coupon cancelCoupon() {
-        System.out.println("Applied coupon 2: " + appliedCoupon);
-        if (appliedCoupon.equals(null)) {
-            return null;
-        }
-
-        Coupon coupon = appliedCoupon;
-        appliedCoupon = null;
+    public void reapplyCoupon() {
         recalculateTotal();
-
-        return coupon;
     }
 
     public void recalculateTotal() {
         totalPrice = cartItems.stream().mapToDouble(CartItem::getSubtotal).sum();
 
         if (appliedCoupon != null) {
-            totalPrice -= appliedCoupon.getDiscountAmount();
+            double discount = appliedCoupon.calculateDiscount(totalPrice);
+            totalPrice -= discount;
 
-			if (totalPrice < 0) {
-				totalPrice = 0.0;
-			}
+            if (totalPrice < 0) {
+                totalPrice = 0.0;
+            }
         }
     }
 }

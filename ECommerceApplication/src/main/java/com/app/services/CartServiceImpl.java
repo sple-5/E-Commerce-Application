@@ -73,6 +73,7 @@ public class CartServiceImpl implements CartService {
 		product.setQuantity(product.getQuantity() - quantity);
 
 		cart.setTotalPrice(cart.getTotalPrice() + (product.getSpecialPrice() * quantity));
+		cart.reapplyCoupon();
 
 		CartDTO cartDTO = modelMapper.map(cart, CartDTO.class);
 
@@ -184,6 +185,9 @@ public class CartServiceImpl implements CartService {
 
 		cartItem = cartItemRepo.save(cartItem);
 
+
+		cart.reapplyCoupon();
+		
 		CartDTO cartDTO = modelMapper.map(cart, CartDTO.class);
 
 		List<ProductDTO> productDTOs = cart.getCartItems().stream()
@@ -207,11 +211,12 @@ public class CartServiceImpl implements CartService {
 		}
 
 		cart.setTotalPrice(cart.getTotalPrice() - (cartItem.getProductPrice() * cartItem.getQuantity()));
-
 		Product product = cartItem.getProduct();
 		product.setQuantity(product.getQuantity() + cartItem.getQuantity());
 
 		cartItemRepo.deleteCartItemByProductIdAndCartId(cartId, productId);
+
+		cart.reapplyCoupon();
 
 		return "Product " + cartItem.getProduct().getProductName() + " removed from the cart !!!";
 	}

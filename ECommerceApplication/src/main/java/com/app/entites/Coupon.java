@@ -8,11 +8,12 @@ import java.time.LocalDate;
 
 @Entity
 @Table(name = "coupons")
+@Inheritance(strategy = InheritanceType.JOINED)
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class Coupon {
+public abstract class Coupon {
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -33,17 +34,22 @@ public class Coupon {
     @Future(message = "Expiration date must be in the future")
     private LocalDate expirationDate;
 
-    private double discountAmount; 
+    public double getDiscountAmount() {
+        return 0.0;
+    }
+
+    public double calculateDiscount(double originalPrice) {
+        return 0.0;
+    }
 
     public boolean isValid() {
         return usedCount < usageLimit && LocalDate.now().isBefore(expirationDate);
     }
 
     public void useCoupon() {
-        if (isValid()) {
-            usedCount++;
-        } else {
-            throw new IllegalStateException("Coupon is expired or usage limit reached.");
+        if (usedCount >= usageLimit) {
+            throw new IllegalStateException("Coupon has already been used the maximum number of times.");
         }
+        this.usedCount++;
     }
 }
