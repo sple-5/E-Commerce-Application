@@ -37,7 +37,7 @@ public class CouponServiceImpl implements CouponService {
             newCoupon = new PercentageCoupon();
             ((PercentageCoupon) newCoupon).setDiscountPercentage(couponDTO.getDiscountPercentage());
         } else {
-            throw new IllegalArgumentException("Invalid discount type. Allowed values: AMOUNT or PERCENTAGE.");
+            throw new APIException("Invalid discount type. Allowed discount type: AMOUNT or PERCENTAGE.");
         }
 
         newCoupon.setCode(couponDTO.getCode());
